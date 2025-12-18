@@ -121,25 +121,6 @@ export default function AuthPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* DEBUG: Plain HTML input test */}
-            <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#ffffcc', borderRadius: '8px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                TEST INPUT (Plain HTML):
-              </label>
-              <input 
-                type="text"
-                placeholder="Can you type here?"
-                style={{ 
-                  width: '100%', 
-                  padding: '8px', 
-                  border: '2px solid #333',
-                  borderRadius: '4px',
-                  fontSize: '16px'
-                }}
-                onChange={(e) => console.log('Plain input value:', e.target.value)}
-              />
-            </div>
-            
             {isLogin ? (
               <Form {...loginForm}>
                 <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">

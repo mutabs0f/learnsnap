@@ -1,0 +1,132 @@
+FOUND THE ROOT CAUSE - INPUT RECEIVES TEXT BUT DOESN'T DISPLAY IT
+
+Console shows:
+"Plain input value: ححححححححححح"
+
+This means:
+✅ Keyboard works
+✅ JavaScript onChange fires
+✅ Input receives the text
+❌ Text is NOT VISIBLE in the input field
+
+This is a CSS/RENDERING issue, NOT a JavaScript issue!
+
+LIKELY CAUSES:
+
+1. TEXT COLOR SAME AS BACKGROUND
+2. FONT-SIZE: 0
+3. TEXT-INDENT: -9999px
+4. OPACITY: 0 on text
+5. COLOR: transparent
+6. RTL/LTR direction causing text to render outside visible area
+
+YOUR TASK:
+
+1. CHECK INPUT CSS IN index.css:
+
+Look for these in client/src/index.css:
+```css
+input {
+  color: /* Is this white on white? */
+  font-size: /* Is this 0? */
+  text-indent: /* Is this negative? */
+  opacity: /* Is this 0? */
+}
+
+/* Also check: */
+input::placeholder {
+  /* Sometimes this overrides input color */
+}
+```
+
+2. ADD VISIBLE TEXT STYLING TO INPUT COMPONENT:
+
+Edit client/src/components/ui/input.tsx:
+```typescript
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          // ADD THIS:
+          "text-foreground !text-black dark:!text-white !opacity-100",
+          className
+        )}
+        ref={ref}
+        {...props}
+        style={{
+          // ADD THIS INLINE STYLE AS LAST RESORT:
+          color: 'black !important',
+          opacity: '1 !important',
+          fontSize: '14px !important',
+          ...props.style
+        }}
+      />
+    )
+  }
+)
+```
+
+3. CHECK FOR RTL TEXT OVERFLOW:
+
+In client/src/index.css, look for:
+```css
+[dir="rtl"] input {
+  /* Check if there's something hiding the text */
+}
+```
+
+4. FORCE VISIBLE STYLING:
+
+Add this to client/src/index.css at the VERY END:
+```css
+/* CRITICAL FIX - Force input text to be visible */
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  color: black !important;
+  opacity: 1 !important;
+  font-size: 14px !important;
+  text-indent: 0 !important;
+  -webkit-text-fill-color: black !important;
+}
+
+/* Dark mode */
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"] {
+  color: white !important;
+  -webkit-text-fill-color: white !important;
+}
+```
+
+5. CHECK WEBKIT AUTOFILL:
+
+Sometimes webkit autofill styling hides text:
+```css
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: black !important;
+  -webkit-box-shadow: 0 0 0px 1000px white inset !important;
+}
+```
+
+6. AFTER FIXING:
+   - Remove the yellow test input
+   - Test registration form
+   - Push to GitHub:
+   
+   git add .
+   git commit -m "Fix invisible text in input fields - CSS rendering issue"
+   git push origin main
+
+PRIORITY: CRITICAL - This is why users can't see what they type!
+
+The console proves the input WORKS - we just need to make the text VISIBLE.
+
+Git credentials:
+- User: Basim Almutairi
+- Email: basimalmutairi1989@gmail.com
