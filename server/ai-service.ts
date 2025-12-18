@@ -3,21 +3,48 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import type { ChapterContent, Question } from "@shared/schema";
 
-// Use standard API keys (works with Vercel)
-// Falls back to Replit AI Integrations if available
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-});
+let anthropicClient: Anthropic | null = null;
+let openaiClient: OpenAI | null = null;
+let genAIClient: GoogleGenAI | null = null;
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
+function getAnthropic(): Anthropic {
+  if (!anthropicClient) {
+    const apiKey = process.env.ANTHROPIC_API_KEY || process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing Anthropic API key. Please set ANTHROPIC_API_KEY environment variable.");
+    }
+    anthropicClient = new Anthropic({
+      apiKey,
+      baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    });
+  }
+  return anthropicClient;
+}
 
-const genAI = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY || "",
-});
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    const apiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing OpenAI API key. Please set OPENAI_API_KEY environment variable.");
+    }
+    openaiClient = new OpenAI({
+      apiKey,
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    });
+  }
+  return openaiClient;
+}
+
+function getGenAI(): GoogleGenAI {
+  if (!genAIClient) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.AI_INTEGRATIONS_GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Missing Gemini API key. Please set GEMINI_API_KEY environment variable.");
+    }
+    genAIClient = new GoogleGenAI({ apiKey });
+  }
+  return genAIClient;
+}
 
 const SYSTEM_PROMPT = `أنت معلم تعليمي متخصص في إنشاء محتوى تعليمي للأطفال في المرحلة الابتدائية (6-12 سنة) في السعودية.
 
@@ -99,7 +126,7 @@ ${JSON_SCHEMA}
 - لا تضف أي نص خارج JSON`;
 
   try {
-    const response = await genAI.models.generateContent({
+    const response = await getGenAI().models.generateContent({
       model: "gemini-2.0-flash-exp",
       contents: [
         {
@@ -151,7 +178,7 @@ ${JSON.stringify(content, null, 2)}
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await getOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         { role: "system", content: "أنت مدقق جودة محتوى تعليمي. أجب بـ JSON فقط." },
@@ -189,7 +216,7 @@ ${issues.join("\n")}
 ${JSON_SCHEMA}`;
 
   try {
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 4096,
       messages: [
