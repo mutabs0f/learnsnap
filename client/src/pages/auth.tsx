@@ -134,7 +134,11 @@ export default function AuthPage() {
                           <Input 
                             placeholder="example@email.com" 
                             type="email" 
-                            {...field} 
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
                             data-testid="input-email"
                             className="text-left"
                             dir="ltr"
@@ -154,7 +158,11 @@ export default function AuthPage() {
                           <Input 
                             placeholder="••••••••" 
                             type="password" 
-                            {...field} 
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
                             data-testid="input-password"
                           />
                         </FormControl>
@@ -184,7 +192,11 @@ export default function AuthPage() {
                         <FormControl>
                           <Input 
                             placeholder={t.dashboard.sampleNamePlaceholder} 
-                            {...field} 
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
                             data-testid="input-fullname"
                           />
                         </FormControl>
@@ -202,7 +214,11 @@ export default function AuthPage() {
                           <Input 
                             placeholder="example@email.com" 
                             type="email" 
-                            {...field} 
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
                             data-testid="input-email-register"
                             className="text-left"
                             dir="ltr"
@@ -222,7 +238,11 @@ export default function AuthPage() {
                           <Input 
                             placeholder="••••••••" 
                             type="password" 
-                            {...field} 
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
                             data-testid="input-password-register"
                           />
                         </FormControl>
@@ -240,7 +260,11 @@ export default function AuthPage() {
                           <Input 
                             placeholder="••••••••" 
                             type="password" 
-                            {...field} 
+                            value={field.value}
+                            onChange={field.onChange}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
                             data-testid="input-confirm-password"
                           />
                         </FormControl>
