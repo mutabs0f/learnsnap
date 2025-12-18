@@ -1,0 +1,161 @@
+COMPREHENSIVE LEARNSNAP SYSTEM AUDIT & TESTING
+
+Project: LearnSnap Educational App
+Deployed URL: https://learnsnap-six.vercel.app
+GitHub: https://github.com/mutabs0f/learnsnap
+
+YOUR MISSION: Conduct full-stack testing and generate detailed audit report
+
+==========================================
+PART 1: FRONTEND TESTING
+==========================================
+
+1. USER INTERFACE AUDIT:
+   - Check all pages in src/pages/ directory
+   - Verify routing configuration (React Router setup)
+   - Test form validations (Auth, Registration, Profile forms)
+   - Check error handling and user feedback
+   - Verify responsive design considerations
+   - Look for console errors or warnings
+
+2. COMPONENT ANALYSIS:
+   - List all React components in src/components/
+   - Check for prop types and TypeScript interfaces
+   - Verify state management (useState, useContext, Redux, etc.)
+   - Check for memory leaks (useEffect cleanup)
+   - Analyze component reusability
+
+3. API INTEGRATION (Frontend Side):
+   - Find all API calls (fetch, axios, etc.)
+   - Check API endpoint URLs and methods
+   - Verify request headers and authentication tokens
+   - Check error handling for failed requests
+   - Verify loading states and user feedback
+
+4. VALIDATION LOGIC:
+   - Examine form validation schemas (Zod, Yup, custom validators)
+   - Check email validation regex patterns
+   - Check password strength requirements
+   - Verify name/text field validations
+   - Test validation timing (onChange vs onSubmit)
+
+==========================================
+PART 2: BACKEND TESTING
+==========================================
+
+5. API ENDPOINTS AUDIT:
+   - List all Express routes in server/ directory
+   - Document each endpoint: method, path, purpose
+   - Check authentication middleware implementation
+   - Verify rate limiting configuration
+   - Check CORS settings
+
+6. DATABASE INTEGRATION:
+   - Check database connection configuration
+   - Verify Prisma schema or database models
+   - Check query optimization
+   - Verify data validation before DB operations
+   - Check for SQL injection prevention
+
+7. AUTHENTICATION & SECURITY:
+   - Verify JWT token generation and validation
+   - Check password hashing (bcrypt configuration)
+   - Verify session management
+   - Check for security headers (helmet.js)
+   - Verify environment variable usage
+
+8. ERROR HANDLING:
+   - Check global error handler middleware
+   - Verify error responses format
+   - Check logging implementation (Winston, etc.)
+   - Verify error messages don't expose sensitive info
+
+==========================================
+PART 3: API COMMUNICATION TESTING
+==========================================
+
+9. FRONTEND ↔ BACKEND FLOW:
+   - Trace authentication flow from login form to API to database
+   - Trace registration flow end-to-end
+   - Check how frontend handles API responses
+   - Verify error propagation from backend to frontend
+   - Check token storage and usage (localStorage, cookies)
+
+10. EXTERNAL API INTEGRATION:
+    - Check OpenAI API integration and error handling
+    - Check Supabase integration (if used)
+    - Verify API key configuration in environment variables
+    - Check rate limiting for external API calls
+    - Verify error handling for external API failures
+
+==========================================
+PART 4: CONFIGURATION & DEPLOYMENT
+==========================================
+
+11. ENVIRONMENT CONFIGURATION:
+    - List all required environment variables
+    - Check .env.example or documentation
+    - Verify Vercel environment variable setup
+    - Check for hardcoded secrets (security risk!)
+
+12. BUILD & DEPLOYMENT:
+    - Check package.json scripts
+    - Verify build configuration (Vite, Webpack, etc.)
+    - Check vercel.json configuration
+    - Verify serverless function setup (api/index.ts)
+    - Check production vs development configurations
+
+==========================================
+PART 5: SPECIFIC BUGS TO INVESTIGATE
+==========================================
+
+13. REGISTRATION FORM BUG:
+    - Find the registration form component
+    - Check validation logic for email and name fields
+    - Identify why valid inputs show error messages
+    - Determine if errors appear before user input
+    - Check validation library configuration
+
+14. DATABASE CONNECTION:
+    - Verify DATABASE_URL is being read correctly
+    - Check if database connection is established
+    - Test a simple query to verify connectivity
+    - Check for connection pooling issues
+
+==========================================
+OUTPUT REQUIRED
+==========================================
+
+Generate a comprehensive markdown report with:
+
+# LEARNSNAP SYSTEM AUDIT REPORT
+
+## Executive Summary
+[Overall health status: ✅ Healthy | ⚠️ Issues Found | ❌ Critical Problems]
+
+## 1. Frontend Analysis
+### Components Structure
+- Total components: [number]
+- Component tree visualization
+- State management approach: [Redux/Context/Props]
+
+### Validation Issues Found
+[List specific validation bugs with code snippets]
+
+### API Integration
+[List all API endpoints called from frontend]
+
+## 2. Backend Analysis
+### API Endpoints
+| Method | Path | Auth Required | Purpose | Status |
+|--------|------|---------------|---------|--------|
+| POST | /api/auth/register | No | User registration | [✅/❌] |
+
+### Database Schema
+[List all database tables and relationships]
+
+### Security Assessment
+[Rate security measures from 1-10 with explanations]
+
+## 3. Frontend ↔ Backend Communication
+### Registration Flow
