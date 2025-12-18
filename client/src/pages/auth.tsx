@@ -48,11 +48,15 @@ export default function AuthPage() {
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
+    mode: "onSubmit",
+    reValidateMode: "onSubmit",
   });
 
   const registerForm = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
     defaultValues: { email: "", password: "", fullName: "", confirmPassword: "" },
+    mode: "onSubmit",
+    reValidateMode: "onSubmit",
   });
 
   const loginMutation = useMutation({
@@ -258,7 +262,11 @@ export default function AuthPage() {
             <div className="mt-6 text-center">
               <button
                 type="button"
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  loginForm.reset();
+                  registerForm.reset();
+                }}
                 className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 data-testid="button-toggle-auth"
               >

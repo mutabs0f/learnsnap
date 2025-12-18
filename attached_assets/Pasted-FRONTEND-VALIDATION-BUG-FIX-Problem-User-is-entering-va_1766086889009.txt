@@ -1,0 +1,54 @@
+FRONTEND VALIDATION BUG FIX
+
+Problem:
+User is entering valid data in registration form but getting validation errors:
+- Valid email shows "Invalid email address"
+- Valid name (more than 2 characters) shows "Name must be at least 2 characters"
+
+Your Task:
+
+1. INVESTIGATE THE ISSUE:
+   - Open the registration/auth page component (likely in src/pages/Auth.tsx or similar)
+   - Check the validation logic for email and name fields
+   - Look for:
+     * Regex patterns for email validation
+     * Length checks for name validation
+     * Form validation library configuration (Zod, Yup, etc.)
+   
+2. COMMON ISSUES TO CHECK:
+   - Is the validation triggering on every keystroke instead of on submit?
+   - Are there conflicting validation rules?
+   - Is the error state being cleared properly?
+   - Are there default error messages showing before user input?
+   - Check if validation is using outdated or incorrect regex patterns
+
+3. FIX THE VALIDATION:
+   - Ensure email validation uses standard pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+   - Ensure name validation checks: name.trim().length >= 2
+   - Make sure errors only show AFTER user attempts to submit or leaves the field
+   - Clear errors when user starts typing valid input
+
+4. TEST THE FIX:
+   - Verify that valid emails like "basim@test.com" pass validation
+   - Verify that names like "Basim Almutairi" pass validation
+   - Check that error messages only appear when actually invalid
+
+5. PUSH TO GITHUB:
+   git add .
+   git commit -m "Fix frontend validation for email and name fields"
+   git push origin main
+
+Files to check (look for these patterns):
+- src/pages/Auth.tsx
+- src/pages/Register.tsx
+- src/components/AuthForm.tsx
+- Any validation schema files (validations.ts, schemas.ts)
+
+Current behavior: Shows errors immediately even with valid input
+Expected behavior: Only show errors for actually invalid input
+
+Git credentials:
+- User: Basim Almutairi
+- Email: basimalmutairi1989@gmail.com
+
+IMPORTANT: After fixing and pushing, Vercel will auto-deploy the fix.
