@@ -1,0 +1,192 @@
+CONFIRMED: Plain HTML works, Form components DON'T work
+
+Evidence:
+- Yellow test input accepts keyboard input ✅
+- Form inputs (Name, Email) do NOT accept input ❌
+
+This means the problem is in React Hook Form integration, NOT CSS.
+
+ROOT CAUSE: The Form components are blocking input somehow.
+
+SOLUTION: Replace shadcn Form components with controlled inputs
+
+YOUR TASK:
+
+1. OPEN client/src/pages/auth.tsx
+
+2. REPLACE the Register form completely with this working version:
+```typescript
+// Find the register form section and replace it with:
+
+const [registerData, setRegisterData] = useState({
+  fullName: '',
+  email: '',
+  password: '',
+  confirmPassword: ''
+});
+
+const [registerErrors, setRegisterErrors] = useState<any>({});
+
+const handleRegisterChange = (field: string, value: string) => {
+  setRegisterData(prev => ({ ...prev, [field]: value }));
+  // Clear error when user types
+  if (registerErrors[field]) {
+    setRegisterErrors((prev: any) => ({ ...prev, [field]: undefined }));
+  }
+};
+
+const handleRegisterSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Validation
+  const errors: any = {};
+  if (registerData.fullName.trim().length < 2) {
+    errors.fullName = t.nameTooShort || 'Name must be at least 2 characters';
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
+    errors.email = t.invalidEmail || 'Invalid email address';
+  }
+  if (registerData.password.length < 6) {
+    errors.password = t.passwordTooShort || 'Password must be at least 6 characters';
+  }
+  if (registerData.password !== registerData.confirmPassword) {
+    errors.confirmPassword = t.passwordsDoNotMatch || 'Passwords do not match';
+  }
+  
+  if (Object.keys(errors).length > 0) {
+    setRegisterErrors(errors);
+    return;
+  }
+  
+  // Submit
+  try {
+    await register({
+      email: registerData.email,
+      password: registerData.password,
+      fullName: registerData.fullName
+    });
+  } catch (error) {
+    console.error('Registration failed:', error);
+  }
+};
+
+// Then in the JSX, replace the Form with:
+
+<form onSubmit={handleRegisterSubmit} className="space-y-4">
+  <div>
+    <label className="text-sm font-medium text-right block mb-2">
+      {t.fullName}
+    </label>
+    <Input
+      type="text"
+      value={registerData.fullName}
+      onChange={(e) => handleRegisterChange('fullName', e.target.value)}
+      placeholder={t.fullNamePlaceholder}
+      dir="rtl"
+    />
+    {registerErrors.fullName && (
+      <p className="text-sm text-red-500 mt-1 text-right">
+        {registerErrors.fullName}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <label className="text-sm font-medium text-right block mb-2">
+      {t.email}
+    </label>
+    <Input
+      type="email"
+      value={registerData.email}
+      onChange={(e) => handleRegisterChange('email', e.target.value)}
+      placeholder={t.emailPlaceholder}
+      dir="rtl"
+    />
+    {registerErrors.email && (
+      <p className="text-sm text-red-500 mt-1 text-right">
+        {registerErrors.email}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <label className="text-sm font-medium text-right block mb-2">
+      {t.password}
+    </label>
+    <Input
+      type="password"
+      value={registerData.password}
+      onChange={(e) => handleRegisterChange('password', e.target.value)}
+      placeholder="••••••••"
+      dir="rtl"
+    />
+    {registerErrors.password && (
+      <p className="text-sm text-red-500 mt-1 text-right">
+        {registerErrors.password}
+      </p>
+    )}
+  </div>
+
+  <div>
+    <label className="text-sm font-medium text-right block mb-2">
+      {t.confirmPassword}
+    </label>
+    <Input
+      type="password"
+      value={registerData.confirmPassword}
+      onChange={(e) => handleRegisterChange('confirmPassword', e.target.value)}
+      placeholder="••••••••"
+      dir="rtl"
+    />
+    {registerErrors.confirmPassword && (
+      <p className="text-sm text-red-500 mt-1 text-right">
+        {registerErrors.confirmPassword}
+      </p>
+    )}
+  </div>
+
+  <Button type="submit" className="w-full">
+    {t.createAccount}
+  </Button>
+</form>
+```
+
+3. DO THE SAME FOR LOGIN FORM (simpler):
+```typescript
+const [loginData, setLoginData] = useState({
+  email: '',
+  password: ''
+});
+
+// Similar handleLoginChange and handleLoginSubmit functions
+```
+
+4. REMOVE these imports (not needed anymore):
+```typescript
+// Remove:
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+```
+
+5. REMOVE the test yellow input after confirming this works
+
+6. PUSH TO GITHUB:
+```bash
+git add .
+git commit -m "Replace React Hook Form with controlled inputs - Fix typing issue"
+git push origin main
+```
+
+WHY THIS WORKS:
+- Removes React Hook Form complexity
+- Uses simple React state (useState)
+- Direct onChange handlers
+- No form library interference
+- Same validation logic, just manual
+
+This is a proven pattern that WILL work.
+
+Git credentials:
+- User: Basim Almutairi
+- Email: basimalmutairi1989@gmail.com

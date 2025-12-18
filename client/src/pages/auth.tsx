@@ -1,28 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { BookOpen, Sparkles, GraduationCap, Star } from "lucide-react";
 import { useLanguage } from "@/contexts/language-context";
 import { LanguageToggle } from "@/components/language-toggle";
-
-type LoginForm = {
-  email: string;
-  password: string;
-};
-
-type RegisterForm = LoginForm & {
-  fullName: string;
-  confirmPassword: string;
-};
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -30,37 +17,36 @@ export default function AuthPage() {
   const { toast } = useToast();
   const { t, isRTL } = useLanguage();
 
-  const loginSchema = useMemo(() => z.object({
-    email: z.string().email(t.auth.invalidEmail),
-    password: z.string().min(6, t.auth.passwordMin),
-  }), [t]);
-
-  const registerSchema = useMemo(() => z.object({
-    email: z.string().email(t.auth.invalidEmail),
-    password: z.string().min(6, t.auth.passwordMin),
-    fullName: z.string().min(2, t.auth.nameMin),
-    confirmPassword: z.string(),
-  }).refine((data) => data.password === data.confirmPassword, {
-    message: t.auth.passwordMismatch,
-    path: ["confirmPassword"],
-  }), [t]);
-
-  const loginForm = useForm<LoginForm>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-    mode: "onSubmit",
-    reValidateMode: "onSubmit",
+  const [loginData, setLoginData] = useState({
+    email: '',
+    password: ''
   });
+  const [loginErrors, setLoginErrors] = useState<Record<string, string>>({});
 
-  const registerForm = useForm<RegisterForm>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: { email: "", password: "", fullName: "", confirmPassword: "" },
-    mode: "onSubmit",
-    reValidateMode: "onSubmit",
+  const [registerData, setRegisterData] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   });
+  const [registerErrors, setRegisterErrors] = useState<Record<string, string>>({});
+
+  const handleLoginChange = (field: string, value: string) => {
+    setLoginData(prev => ({ ...prev, [field]: value }));
+    if (loginErrors[field]) {
+      setLoginErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handleRegisterChange = (field: string, value: string) => {
+    setRegisterData(prev => ({ ...prev, [field]: value }));
+    if (registerErrors[field]) {
+      setRegisterErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
 
   const loginMutation = useMutation({
-    mutationFn: async (data: LoginForm) => {
+    mutationFn: async (data: { email: string; password: string }) => {
       const res = await apiRequest("POST", "/api/auth/login", data);
       return res.json();
     },
@@ -76,12 +62,8 @@ export default function AuthPage() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (data: RegisterForm) => {
-      const res = await apiRequest("POST", "/api/auth/register", {
-        email: data.email,
-        password: data.password,
-        fullName: data.fullName,
-      });
+    mutationFn: async (data: { email: string; password: string; fullName: string }) => {
+      const res = await apiRequest("POST", "/api/auth/register", data);
       return res.json();
     },
     onSuccess: (data) => {
@@ -94,6 +76,61 @@ export default function AuthPage() {
       toast({ title: t.auth.registerError, description: t.auth.registerErrorDesc, variant: "destructive" });
     },
   });
+
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const errors: Record<string, string> = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(loginData.email)) {
+      errors.email = t.auth.invalidEmail;
+    }
+    if (loginData.password.length < 6) {
+      errors.password = t.auth.passwordMin;
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setLoginErrors(errors);
+      return;
+    }
+    
+    loginMutation.mutate(loginData);
+  };
+
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const errors: Record<string, string> = {};
+    if (registerData.fullName.trim().length < 2) {
+      errors.fullName = t.auth.nameMin;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
+      errors.email = t.auth.invalidEmail;
+    }
+    if (registerData.password.length < 6) {
+      errors.password = t.auth.passwordMin;
+    }
+    if (registerData.password !== registerData.confirmPassword) {
+      errors.confirmPassword = t.auth.passwordMismatch;
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setRegisterErrors(errors);
+      return;
+    }
+    
+    registerMutation.mutate({
+      email: registerData.email,
+      password: registerData.password,
+      fullName: registerData.fullName
+    });
+  };
+
+  const resetForms = () => {
+    setLoginData({ email: '', password: '' });
+    setLoginErrors({});
+    setRegisterData({ fullName: '', email: '', password: '', confirmPassword: '' });
+    setRegisterErrors({});
+  };
 
   const features = [
     { icon: BookOpen, text: t.auth.feature1 },
@@ -122,174 +159,122 @@ export default function AuthPage() {
           </CardHeader>
           <CardContent>
             {isLogin ? (
-              <Form {...loginForm}>
-                <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={loginForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.auth.email}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="example@email.com" 
-                            type="email" 
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                            data-testid="input-email"
-                            className="text-left"
-                            dir="ltr"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">{t.auth.email}</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="example@email.com"
+                    value={loginData.email}
+                    onChange={(e) => handleLoginChange('email', e.target.value)}
+                    data-testid="input-email"
+                    className="text-left"
+                    dir="ltr"
                   />
-                  <FormField
-                    control={loginForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.auth.password}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="••••••••" 
-                            type="password" 
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                            data-testid="input-password"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  {loginErrors.email && (
+                    <p className="text-sm text-destructive">{loginErrors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">{t.auth.password}</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={loginData.password}
+                    onChange={(e) => handleLoginChange('password', e.target.value)}
+                    data-testid="input-password"
                   />
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={loginMutation.isPending}
-                    data-testid="button-login"
-                  >
-                    {loginMutation.isPending ? t.common.loading : t.auth.login}
-                  </Button>
-                </form>
-              </Form>
+                  {loginErrors.password && (
+                    <p className="text-sm text-destructive">{loginErrors.password}</p>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={loginMutation.isPending}
+                  data-testid="button-login"
+                >
+                  {loginMutation.isPending ? t.common.loading : t.auth.login}
+                </Button>
+              </form>
             ) : (
-              <Form {...registerForm}>
-                <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))} className="space-y-4">
-                  <FormField
-                    control={registerForm.control}
-                    name="fullName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.auth.fullName}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder={t.dashboard.sampleNamePlaceholder} 
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                            data-testid="input-fullname"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+              <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-fullname">{t.auth.fullName}</Label>
+                  <Input
+                    id="register-fullname"
+                    type="text"
+                    placeholder={t.dashboard.sampleNamePlaceholder}
+                    value={registerData.fullName}
+                    onChange={(e) => handleRegisterChange('fullName', e.target.value)}
+                    data-testid="input-fullname"
                   />
-                  <FormField
-                    control={registerForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.auth.email}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="example@email.com" 
-                            type="email" 
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                            data-testid="input-email-register"
-                            className="text-left"
-                            dir="ltr"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  {registerErrors.fullName && (
+                    <p className="text-sm text-destructive">{registerErrors.fullName}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-email">{t.auth.email}</Label>
+                  <Input
+                    id="register-email"
+                    type="email"
+                    placeholder="example@email.com"
+                    value={registerData.email}
+                    onChange={(e) => handleRegisterChange('email', e.target.value)}
+                    data-testid="input-email-register"
+                    className="text-left"
+                    dir="ltr"
                   />
-                  <FormField
-                    control={registerForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.auth.password}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="••••••••" 
-                            type="password" 
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                            data-testid="input-password-register"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  {registerErrors.email && (
+                    <p className="text-sm text-destructive">{registerErrors.email}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-password">{t.auth.password}</Label>
+                  <Input
+                    id="register-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={registerData.password}
+                    onChange={(e) => handleRegisterChange('password', e.target.value)}
+                    data-testid="input-password-register"
                   />
-                  <FormField
-                    control={registerForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t.auth.confirmPassword}</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="••••••••" 
-                            type="password" 
-                            value={field.value}
-                            onChange={field.onChange}
-                            onBlur={field.onBlur}
-                            name={field.name}
-                            ref={field.ref}
-                            data-testid="input-confirm-password"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                  {registerErrors.password && (
+                    <p className="text-sm text-destructive">{registerErrors.password}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="register-confirm">{t.auth.confirmPassword}</Label>
+                  <Input
+                    id="register-confirm"
+                    type="password"
+                    placeholder="••••••••"
+                    value={registerData.confirmPassword}
+                    onChange={(e) => handleRegisterChange('confirmPassword', e.target.value)}
+                    data-testid="input-confirm-password"
                   />
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={registerMutation.isPending}
-                    data-testid="button-register"
-                  >
-                    {registerMutation.isPending ? t.common.loading : t.auth.register}
-                  </Button>
-                </form>
-              </Form>
+                  {registerErrors.confirmPassword && (
+                    <p className="text-sm text-destructive">{registerErrors.confirmPassword}</p>
+                  )}
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={registerMutation.isPending}
+                  data-testid="button-register"
+                >
+                  {registerMutation.isPending ? t.common.loading : t.auth.register}
+                </Button>
+              </form>
             )}
             <div className="mt-6 text-center">
               <button
                 type="button"
                 onClick={() => {
                   setIsLogin(!isLogin);
-                  loginForm.reset();
-                  registerForm.reset();
+                  resetForms();
                 }}
                 className="text-sm text-muted-foreground hover:text-primary transition-colors"
                 data-testid="button-toggle-auth"
