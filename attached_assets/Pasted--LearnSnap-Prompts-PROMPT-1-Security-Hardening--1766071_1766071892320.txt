@@ -1,0 +1,1325 @@
+# LearnSnap - Prompts للتحسينات المطلوبة
+
+---
+
+## 🔴 **PROMPT 1: Security Hardening (الأولوية القصوى)**
+
+```
+I need to implement critical security improvements to make LearnSnap production-ready:
+
+## 1. JWT Authentication for Child Flow
+
+Currently using localStorage for child authentication, which is insecure. Replace with JWT tokens:
+
+### Implementation:
+- Install: jsonwebtoken, cookie-parser
+- Create server/auth.ts with JWT utilities
+- Generate JWT token when child starts learning
+- Store in httpOnly cookie (not localStorage)
+- Add middleware to verify JWT on protected child routes
+- Set expiration (24 hours)
+
+### Code structure:
+```typescript
+// server/auth.ts
+import jwt from 'jsonwebtoken';
+
+interface ChildJWT {
+  childId: string;
+  parentId: string;
+  exp: number;
+}
+
+export function generateChildToken(childId: string, parentId: string): string {
+  return jwt.sign(
+    { childId, parentId },
+    process.env.JWT_SECRET!,
+    { expiresIn: '24h' }
+  );
+}
+
+export function verifyChildToken(token: string): ChildJWT {
+  return jwt.verify(token, process.env.JWT_SECRET!) as ChildJWT;
+}
+
+// Middleware
+export function requireChildAuth(req, res, next) {
+  const token = req.cookies.childToken;
+  if (!token) return res.status(401).json({ error: 'غير مصرح' });
+  
+  try {
+    req.child = verifyChildToken(token);
+    next();
+  } catch (error) {
+    res.status(401).json({ error: 'جلسة منتهية' });
+  }
+}
+```
+
+Apply middleware to child routes:
+- GET /api/children/:id/chapters
+- POST /api/chapters/:id/results
+- All /api/child/* routes
+
+Update client code to use cookies instead of localStorage.
+
+---
+
+## 2. Rate Limiting
+
+Protect API endpoints from abuse:
+
+### Implementation:
+- Install: express-rate-limit
+- Add global rate limiter (100 requests per 15 minutes)
+- Add strict limiter for auth endpoints (5 attempts per 15 minutes)
+- Add AI processing limiter (10 requests per hour per user)
+
+```typescript
+import rateLimit from 'express-rate-limit';
+
+// Global limiter
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: 'عدد كبير من الطلبات، حاول لاحقاً',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Auth limiter
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  skipSuccessfulRequests: true,
+  message: 'عدد كبير من محاولات تسجيل الدخول'
+});
+
+// AI processing limiter
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'تجاوزت حد المعالجة، انتظر ساعة'
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/auth/', authLimiter);
+app.use('/api/chapters/:id/process', aiLimiter);
+```
+
+---
+
+## 3. CORS Configuration
+
+Properly configure CORS for production:
+
+```typescript
+import cors from 'cors';
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+```
+
+Add FRONTEND_URL to environment variables.
+
+---
+
+## 4. Input Validation Enhancement
+
+Add comprehensive validation to all endpoints:
+
+### For photo upload:
+```typescript
+const uploadSchema = z.object({
+  childId: z.string().uuid(),
+  subject: z.string().min(1).max(50),
+  grade: z.number().int().min(1).max(6),
+  photos: z.array(z.string()).min(1).max(20),
+}).refine(data => {
+  // Validate base64 format
+  return data.photos.every(p => p.startsWith('data:image/'));
+}, { message: 'تنسيق الصور غير صحيح' });
+```
+
+### For results submission:
+```typescript
+const resultsSchema = z.object({
+  chapterId: z.string().uuid(),
+  childId: z.string().uuid(),
+  practiceAnswers: z.array(z.enum(['A', 'B', 'C', 'D'])).length(5),
+  testAnswers: z.array(z.enum(['A', 'B', 'C', 'D'])).length(10),
+  timeSpentSeconds: z.number().int().min(0).max(7200), // max 2 hours
+});
+```
+
+Apply to all POST/PATCH endpoints.
+
+---
+
+## 5. Security Headers
+
+Add security headers with helmet:
+
+```typescript
+import helmet from 'helmet';
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+```
+
+---
+
+## 6. Environment Variables
+
+Add these to .env:
+
+```
+JWT_SECRET=your_random_secure_string_min_32_chars
+FRONTEND_URL=https://learnsnap.com
+NODE_ENV=production
+```
+
+Generate JWT_SECRET with: `openssl rand -base64 32`
+
+---
+
+## Testing Checklist:
+After implementing, test:
+- [ ] JWT tokens work for child flow
+- [ ] Rate limiting blocks excessive requests
+- [ ] CORS only allows your domain
+- [ ] Input validation rejects invalid data
+- [ ] Security headers present in responses
+
+Implement all 6 security improvements and confirm they work correctly.
+```
+
+---
+
+## 🟡 **PROMPT 2: Production Setup (الأولوية الثانية)**
+
+```
+Set up production-ready infrastructure for LearnSnap:
+
+## 1. Logging System
+
+Implement Winston for comprehensive logging:
+
+### Installation:
+```bash
+npm install winston winston-daily-rotate-file
+```
+
+### Implementation:
+```typescript
+// server/logger.ts
+import winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  transports: [
+    // Console output (development)
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
+    }),
+    
+    // Error logs (separate file)
+    new DailyRotateFile({
+      filename: 'logs/error-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      level: 'error',
+      maxFiles: '30d'
+    }),
+    
+    // Combined logs
+    new DailyRotateFile({
+      filename: 'logs/combined-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d'
+    })
+  ]
+});
+
+export default logger;
+```
+
+### Usage:
+Replace all `console.log` and `console.error` with:
+```typescript
+import logger from './logger';
+
+logger.info('User registered', { userId, email });
+logger.error('AI generation failed', { error, chapterId });
+logger.warn('Rate limit exceeded', { ip, endpoint });
+```
+
+Add request logging middleware:
+```typescript
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('HTTP Request', {
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration,
+      ip: req.ip
+    });
+  });
+  next();
+});
+```
+
+---
+
+## 2. Health Check Endpoints
+
+Add monitoring endpoints:
+
+```typescript
+// server/routes.ts
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+app.get('/health/ready', async (req, res) => {
+  try {
+    // Check database
+    await storage.healthCheck();
+    
+    // Check AI services
+    const aiHealth = {
+      gemini: !!process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+      openai: !!process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+      anthropic: !!process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    };
+    
+    res.json({
+      status: 'ready',
+      services: {
+        database: 'ok',
+        ai: aiHealth
+      }
+    });
+  } catch (error) {
+    logger.error('Health check failed', { error });
+    res.status(503).json({
+      status: 'not ready',
+      error: error.message
+    });
+  }
+});
+
+app.get('/health/live', (req, res) => {
+  res.json({ status: 'alive' });
+});
+```
+
+Add to storage.ts:
+```typescript
+async healthCheck(): Promise<void> {
+  await this.db.execute(sql`SELECT 1`);
+}
+```
+
+---
+
+## 3. Error Monitoring Setup
+
+Integrate Sentry for error tracking:
+
+### Installation:
+```bash
+npm install @sentry/node @sentry/profiling-node
+```
+
+### Implementation:
+```typescript
+// server/sentry.ts
+import * as Sentry from '@sentry/node';
+import { ProfilingIntegration } from '@sentry/profiling-node';
+
+export function initSentry(app: Express) {
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV,
+      integrations: [
+        new Sentry.Integrations.Http({ tracing: true }),
+        new Sentry.Integrations.Express({ app }),
+        new ProfilingIntegration(),
+      ],
+      tracesSampleRate: 0.1,
+      profilesSampleRate: 0.1,
+    });
+    
+    app.use(Sentry.Handlers.requestHandler());
+    app.use(Sentry.Handlers.tracingHandler());
+  }
+}
+
+export function sentryErrorHandler(app: Express) {
+  if (process.env.SENTRY_DSN) {
+    app.use(Sentry.Handlers.errorHandler());
+  }
+}
+```
+
+Add to server/index.ts:
+```typescript
+import { initSentry, sentryErrorHandler } from './sentry';
+
+// After creating app
+initSentry(app);
+
+// Before starting server (after all routes)
+sentryErrorHandler(app);
+```
+
+---
+
+## 4. Environment Configuration
+
+Create proper environment setup:
+
+### Development (.env.development):
+```bash
+NODE_ENV=development
+DATABASE_URL=postgresql://localhost:5432/learnsnap_dev
+FRONTEND_URL=http://localhost:5173
+LOG_LEVEL=debug
+```
+
+### Production (.env.production):
+```bash
+NODE_ENV=production
+DATABASE_URL=your_production_db_url
+FRONTEND_URL=https://learnsnap.com
+LOG_LEVEL=info
+SENTRY_DSN=your_sentry_dsn
+JWT_SECRET=your_production_jwt_secret
+```
+
+### Load environment:
+```typescript
+// server/config.ts
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']),
+  DATABASE_URL: z.string().url(),
+  FRONTEND_URL: z.string().url(),
+  JWT_SECRET: z.string().min(32),
+  SENTRY_DSN: z.string().url().optional(),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+});
+
+export const config = envSchema.parse(process.env);
+```
+
+---
+
+## 5. Graceful Shutdown
+
+Handle shutdown gracefully:
+
+```typescript
+// server/index.ts
+
+let isShuttingDown = false;
+
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
+
+async function gracefulShutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  logger.info('Shutting down gracefully...');
+  
+  // Stop accepting new requests
+  httpServer.close(() => {
+    logger.info('HTTP server closed');
+  });
+  
+  // Close database connections
+  // await db.end();
+  
+  // Wait for ongoing requests (max 30s)
+  setTimeout(() => {
+    logger.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+}
+
+// Catch unhandled errors
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', { error });
+  gracefulShutdown();
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection', { reason, promise });
+});
+```
+
+---
+
+## 6. Database Connection Pooling
+
+Optimize database connections:
+
+```typescript
+// server/db.ts
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+
+const sql = neon(process.env.DATABASE_URL!, {
+  poolQueryViaFetch: true,
+  fetchOptions: {
+    cache: 'no-store',
+  },
+});
+
+export const db = drizzle({ client: sql });
+```
+
+---
+
+## Environment Variables to Add:
+
+```bash
+# Required
+NODE_ENV=production
+LOG_LEVEL=info
+JWT_SECRET=generated_secret_32_chars
+
+# Optional
+SENTRY_DSN=https://...@sentry.io/...
+```
+
+---
+
+## Testing:
+- [ ] Logs appear in logs/ folder
+- [ ] /health endpoints return 200
+- [ ] Errors sent to Sentry (if configured)
+- [ ] Graceful shutdown works (CTRL+C)
+- [ ] Environment validation works
+
+Implement all production setup features.
+```
+
+---
+
+## 🟢 **PROMPT 3: Error Handling & UX Improvements**
+
+```
+Improve error handling and user experience across LearnSnap:
+
+## 1. React Error Boundaries
+
+Add error boundaries to catch React errors:
+
+### Implementation:
+```typescript
+// client/src/components/ErrorBoundary.tsx
+import React from 'react';
+import { AlertCircle } from 'lucide-react';
+import { Button } from './ui/button';
+
+interface Props {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error?: Error;
+}
+
+export class ErrorBoundary extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo);
+    // Send to Sentry if configured
+  }
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
+      return (
+        <div className="min-h-screen flex items-center justify-center p-4" dir="rtl">
+          <div className="text-center max-w-md">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold mb-2">حدث خطأ غير متوقع</h1>
+            <p className="text-gray-600 mb-4">
+              نعتذر عن هذا الخطأ. يرجى تحديث الصفحة أو المحاولة لاحقاً.
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-primary-600"
+            >
+              تحديث الصفحة
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+### Usage:
+Wrap main app and critical pages:
+
+```typescript
+// client/src/App.tsx
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        {/* routes */}
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+}
+```
+
+Wrap individual pages:
+```typescript
+// For AI processing page
+<ErrorBoundary fallback={<ProcessingError />}>
+  <ProcessingPage />
+</ErrorBoundary>
+```
+
+---
+
+## 2. API Error Handling Hook
+
+Create reusable error handling:
+
+```typescript
+// client/src/hooks/useErrorHandler.ts
+import { useToast } from './use-toast';
+
+interface ApiError {
+  message: string;
+  status?: number;
+  code?: string;
+}
+
+export function useErrorHandler() {
+  const { toast } = useToast();
+
+  const handleError = (error: unknown) => {
+    console.error('API Error:', error);
+
+    let message = 'حدث خطأ غير متوقع';
+
+    if (error instanceof Response) {
+      if (error.status === 401) {
+        message = 'انتهت الجلسة، يرجى تسجيل الدخول مجدداً';
+        // Redirect to login
+        window.location.href = '/auth';
+      } else if (error.status === 429) {
+        message = 'عدد كبير من الطلبات، حاول بعد قليل';
+      } else if (error.status === 500) {
+        message = 'خطأ في الخادم، يرجى المحاولة لاحقاً';
+      }
+    } else if (error instanceof Error) {
+      message = error.message;
+    }
+
+    toast({
+      variant: 'destructive',
+      title: 'خطأ',
+      description: message,
+    });
+  };
+
+  return { handleError };
+}
+```
+
+### Usage in components:
+```typescript
+const { handleError } = useErrorHandler();
+
+const mutation = useMutation({
+  mutationFn: uploadPhotos,
+  onError: handleError,
+  onSuccess: (data) => {
+    toast({ title: 'تم بنجاح!' });
+  }
+});
+```
+
+---
+
+## 3. Loading States
+
+Add proper loading indicators:
+
+```typescript
+// client/src/components/LoadingSpinner.tsx
+export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const sizes = {
+    sm: 'w-4 h-4',
+    md: 'w-8 h-8',
+    lg: 'w-12 h-12'
+  };
+
+  return (
+    <div className="flex justify-center items-center">
+      <div className={`${sizes[size]} border-4 border-gray-200 border-t-primary-600 rounded-full animate-spin`} />
+    </div>
+  );
+}
+
+// For full page loading
+export function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <LoadingSpinner size="lg" />
+        <p className="mt-4 text-gray-600">جاري التحميل...</p>
+      </div>
+    </div>
+  );
+}
+```
+
+### Usage:
+```typescript
+if (isLoading) return <PageLoader />;
+if (error) return <ErrorMessage error={error} />;
+return <YourComponent data={data} />;
+```
+
+---
+
+## 4. Retry Logic
+
+Add automatic retry for failed requests:
+
+```typescript
+// client/src/lib/api.ts
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit = {},
+  retries = 3
+): Promise<Response> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // Don't retry client errors (4xx)
+      if (response.status < 500) {
+        return response;
+      }
+      
+      // Retry server errors (5xx)
+      if (i < retries - 1) {
+        const delay = Math.min(1000 * Math.pow(2, i), 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      return response;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      
+      // Exponential backoff
+      const delay = Math.min(1000 * Math.pow(2, i), 10000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new Error('Max retries exceeded');
+}
+```
+
+---
+
+## 5. Form Validation Improvements
+
+Better error messages:
+
+```typescript
+// client/src/pages/upload.tsx
+const form = useForm({
+  resolver: zodResolver(uploadSchema),
+  defaultValues: {
+    photos: [],
+    subject: '',
+    grade: 0
+  }
+});
+
+// Custom error messages
+const errorMessages = {
+  photos: {
+    min: 'يجب إضافة صورة واحدة على الأقل',
+    max: 'الحد الأقصى 20 صورة'
+  },
+  subject: {
+    required: 'يجب اختيار المادة'
+  },
+  grade: {
+    required: 'يجب اختيار الصف',
+    min: 'الصف يجب أن يكون من 1 إلى 6'
+  }
+};
+
+// Show errors
+{form.formState.errors.photos && (
+  <p className="text-sm text-red-500 mt-1">
+    {errorMessages.photos[form.formState.errors.photos.type]}
+  </p>
+)}
+```
+
+---
+
+## 6. Empty States
+
+Add empty state components:
+
+```typescript
+// client/src/components/EmptyState.tsx
+import { Icon } from 'lucide-react';
+
+interface EmptyStateProps {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+  return (
+    <div className="text-center py-12">
+      <Icon className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <p className="text-gray-600 mb-6">{description}</p>
+      {action && (
+        <Button onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
+    </div>
+  );
+}
+```
+
+### Usage:
+```typescript
+{children.length === 0 && (
+  <EmptyState
+    icon={Users}
+    title="لا يوجد أطفال"
+    description="ابدأ بإضافة طفل لإنشاء الدروس"
+    action={{
+      label: 'إضافة طفل',
+      onClick: () => setShowAddChild(true)
+    }}
+  />
+)}
+```
+
+---
+
+## 7. Offline Detection
+
+Detect and handle offline state:
+
+```typescript
+// client/src/hooks/useOnlineStatus.ts
+import { useState, useEffect } from 'react';
+
+export function useOnlineStatus() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  return isOnline;
+}
+```
+
+### Usage:
+```typescript
+function App() {
+  const isOnline = useOnlineStatus();
+
+  return (
+    <>
+      {!isOnline && (
+        <div className="bg-yellow-500 text-white text-center py-2">
+          ⚠️ لا يوجد اتصال بالإنترنت
+        </div>
+      )}
+      {/* rest of app */}
+    </>
+  );
+}
+```
+
+---
+
+## Testing:
+- [ ] Error boundary catches React errors
+- [ ] API errors show toast notifications
+- [ ] Loading states appear during requests
+- [ ] Retry works for failed requests
+- [ ] Form validation shows clear messages
+- [ ] Empty states appear when no data
+- [ ] Offline banner shows when disconnected
+
+Implement all error handling improvements.
+```
+
+---
+
+## ✅ **PROMPT 4: Final Testing & Deployment**
+
+```
+Prepare LearnSnap for production deployment:
+
+## 1. End-to-End Testing
+
+Test complete user flows:
+
+### Parent Flow:
+```
+Test Steps:
+1. Open app in incognito mode
+2. Click "إنشاء حساب جديد"
+3. Fill registration form:
+   - Email: test@example.com
+   - Password: Test123!@#
+   - Full Name: أحمد المطيري
+4. Submit and verify redirect to dashboard
+5. Click "إضافة طفل"
+6. Fill child form:
+   - Name: سارة
+   - Age: 8
+7. Click "تحميل درس جديد"
+8. Upload 3-5 textbook photos (real photos!)
+9. Select: Subject=Math, Grade=2
+10. Click "إنشاء الدرس"
+11. Wait for AI processing (30-60 seconds)
+12. Verify redirect to chapter page
+13. Check content quality (Arabic, age-appropriate)
+14. Share link with child
+
+Verify:
+- ✓ No console errors
+- ✓ All redirects work
+- ✓ Photos upload successfully
+- ✓ AI generates valid content
+- ✓ Content is in Arabic
+- ✓ Questions have 4 options each
+- ✓ Practice has 5 questions
+- ✓ Test has 10 questions
+```
+
+### Child Flow:
+```
+Test Steps:
+1. Open shared link from parent
+2. See welcome screen with child name
+3. Click "يلا نبدأ!"
+4. See lesson card
+5. Click "ابدأ الآن"
+6. Read explanation paragraphs
+7. Click "التالي" through all paragraphs
+8. Start practice (5 questions)
+9. Answer each question
+10. See immediate feedback (correct/wrong)
+11. See confetti on correct answer
+12. Complete all practice questions
+13. Start test (10 questions)
+14. Answer all without feedback
+15. Submit test
+16. See results with stars
+17. Check if badge unlocked
+18. Click "رجوع للدروس"
+
+Verify:
+- ✓ JWT token set in cookie
+- ✓ Voice narration works (if available)
+- ✓ Animations smooth
+- ✓ Progress bars accurate
+- ✓ Stars calculated correctly
+- ✓ Results saved to database
+```
+
+### Report Flow:
+```
+Test Steps:
+1. Login as parent
+2. Go to dashboard
+3. Find completed chapter
+4. Click "عرض التقرير"
+5. Verify report shows:
+   - Overall score (X/15)
+   - Star rating (1-5)
+   - Circular progress chart
+   - Strengths list
+   - Weaknesses list
+   - Detailed answers
+   - Wrong answers with corrections
+   - Recommendations
+6. Click "تحميل PDF"
+7. Verify PDF downloads correctly
+
+Verify:
+- ✓ All data accurate
+- ✓ Charts render properly
+- ✓ Arabic text correct
+- ✓ PDF generation works
+```
+
+---
+
+## 2. Browser Compatibility Testing
+
+Test on multiple browsers:
+
+```
+Desktop:
+☐ Chrome (Windows)
+☐ Chrome (Mac)
+☐ Firefox (Windows)
+☐ Firefox (Mac)
+☐ Safari (Mac)
+☐ Edge (Windows)
+
+Mobile:
+☐ Chrome (Android)
+☐ Safari (iOS)
+☐ Samsung Internet
+
+Tablet:
+☐ iPad Safari
+☐ Android Chrome
+
+Test each:
+- Registration/Login
+- Photo upload
+- AI processing
+- Learning flow
+- Voice narration
+- PDF export
+- RTL layout
+- Touch interactions
+```
+
+---
+
+## 3. Performance Testing
+
+Test with realistic load:
+
+### Database Performance:
+```sql
+-- Create test data
+INSERT INTO users (email, full_name, password)
+SELECT 
+  'test' || generate_series(1, 100) || '@example.com',
+  'Test User ' || generate_series(1, 100),
+  '$2b$10$...' -- hashed password
+;
+
+-- Create children
+INSERT INTO children (parent_id, name, age)
+SELECT 
+  users.id,
+  'Child ' || generate_series(1, 3),
+  7 + (generate_series(1, 3) % 3)
+FROM users;
+
+-- Test query performance
+EXPLAIN ANALYZE 
+SELECT * FROM chapters WHERE parent_id = 'xxx';
+
+-- Add indexes if needed
+CREATE INDEX idx_chapters_parent ON chapters(parent_id);
+CREATE INDEX idx_children_parent ON children(parent_id);
+CREATE INDEX idx_results_chapter ON chapter_results(chapter_id);
+```
+
+### API Load Testing:
+```bash
+# Install artillery
+npm install -g artillery
+
+# Create artillery.yml
+config:
+  target: 'https://your-app.com'
+  phases:
+    - duration: 60
+      arrivalRate: 10
+scenarios:
+  - flow:
+    - post:
+        url: '/api/auth/login'
+        json:
+          email: 'test@example.com'
+          password: 'Test123!'
+    - get:
+        url: '/api/children'
+
+# Run test
+artillery run artillery.yml
+```
+
+---
+
+## 4. Production Deployment
+
+Deploy to Vercel:
+
+### Preparation:
+```bash
+# Install Vercel CLI
+npm install -g vercel
+
+# Build project locally first
+npm run build
+
+# Test production build
+npm start
+
+# Verify it works on localhost:3000
+```
+
+### Deploy:
+```bash
+# Login to Vercel
+vercel login
+
+# Deploy
+vercel --prod
+
+# Set environment variables in Vercel dashboard:
+NODE_ENV=production
+DATABASE_URL=postgresql://...
+JWT_SECRET=your_generated_secret
+AI_INTEGRATIONS_GEMINI_API_KEY=...
+AI_INTEGRATIONS_OPENAI_API_KEY=...
+AI_INTEGRATIONS_ANTHROPIC_API_KEY=...
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+VITE_STRIPE_PUBLIC_KEY=pk_live_...
+FRONTEND_URL=https://learnsnap.vercel.app
+SENTRY_DSN=https://...@sentry.io/... (optional)
+```
+
+### Stripe Webhook Configuration:
+```bash
+# Add webhook endpoint in Stripe Dashboard:
+URL: https://your-app.vercel.app/api/subscription/webhook
+Events:
+  - customer.subscription.created
+  - customer.subscription.updated
+  - customer.subscription.deleted
+  - invoice.payment_succeeded
+  - invoice.payment_failed
+
+# Copy webhook signing secret to Vercel
+```
+
+---
+
+## 5. Post-Deployment Verification
+
+After deployment, verify:
+
+```
+☐ App loads at production URL
+☐ HTTPS/SSL working
+☐ Can register new account
+☐ Can login
+☐ Can add child
+☐ Can upload photos
+☐ AI processing works
+☐ Child learning flow works
+☐ Reports generate correctly
+☐ PDF export works
+☐ Stripe checkout works (test mode first!)
+☐ Webhooks received
+☐ Logs appearing (check Vercel logs)
+☐ No console errors
+☐ Health endpoints respond
+☐ /health returns 200
+☐ /health/ready shows all services
+```
+
+---
+
+## 6. Monitoring Setup
+
+Set up monitoring:
+
+### Vercel Analytics:
+```bash
+# Enable in Vercel dashboard
+# View metrics:
+- Page views
+- Unique visitors
+- Top pages
+- Performance (Web Vitals)
+```
+
+### Sentry Monitoring:
+```typescript
+// Verify Sentry receives errors
+// Test by triggering an error:
+throw new Error('Test error for Sentry');
+
+// Check Sentry dashboard for error
+```
+
+### Database Monitoring:
+```sql
+-- Check slow queries
+SELECT 
+  query,
+  calls,
+  mean_exec_time,
+  max_exec_time
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC
+LIMIT 10;
+```
+
+---
+
+## 7. Launch Checklist
+
+Final checks before announcing:
+
+### Technical:
+```
+☐ All environment variables set
+☐ Database migrations run
+☐ Sample chapters seeded
+☐ Stripe products created
+☐ Webhooks configured
+☐ SSL certificate valid
+☐ Domain configured
+☐ Rate limiting active
+☐ Logging working
+☐ Monitoring active
+☐ Backups configured
+```
+
+### Content:
+```
+☐ Terms of Service page
+☐ Privacy Policy page
+☐ Contact page
+☐ FAQ page
+☐ Pricing page updated
+☐ About page
+☐ Help documentation
+```
+
+### Marketing:
+```
+☐ Google Analytics (optional)
+☐ Meta Pixel (optional)
+☐ Social media links
+☐ Email templates
+☐ Welcome email
+☐ Launch announcement
+```
+
+---
+
+## Success Criteria:
+
+The app is production-ready when:
+- ✅ All security improvements implemented
+- ✅ All production setup complete
+- ✅ End-to-end tests pass
+- ✅ Browser compatibility verified
+- ✅ Performance acceptable (<2s page load)
+- ✅ AI processing works (<60s)
+- ✅ No critical bugs
+- ✅ Monitoring active
+- ✅ Deployed to production
+- ✅ Domain configured
+- ✅ SSL active
+
+After completing all steps, LearnSnap will be fully production-ready! 🚀
+```
+
+---
+
+**نهاية الـ Prompts** ✅

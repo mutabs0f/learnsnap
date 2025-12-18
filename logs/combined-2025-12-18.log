@@ -1,0 +1,40 @@
+{"level":"info","message":"Initializing Stripe schema...","timestamp":"2025-12-18T16:30:55.684Z"}
+{"level":"info","message":"Stripe schema ready","timestamp":"2025-12-18T16:30:55.763Z"}
+{"level":"info","message":"Setting up managed webhook...","timestamp":"2025-12-18T16:30:55.864Z"}
+{"level":"info","message":"Webhook setup skipped (no URL returned)","timestamp":"2025-12-18T16:30:56.149Z"}
+{"level":"info","message":"Syncing Stripe data...","timestamp":"2025-12-18T16:30:56.150Z"}
+{"level":"info","message":"Stripe data synced","timestamp":"2025-12-18T16:30:56.158Z"}
+{"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T16:30:56.173Z"}
+{"level":"info","message":"4:30:56 PM [express] serving on port 5000","timestamp":"2025-12-18T16:30:56.765Z"}
+{"level":"info","message":"Initializing Stripe schema...","timestamp":"2025-12-18T16:32:19.754Z"}
+{"level":"info","message":"Stripe schema ready","timestamp":"2025-12-18T16:32:19.825Z"}
+{"level":"info","message":"Setting up managed webhook...","timestamp":"2025-12-18T16:32:20.414Z"}
+{"level":"info","message":"Webhook setup skipped (no URL returned)","timestamp":"2025-12-18T16:32:20.754Z"}
+{"level":"info","message":"Syncing Stripe data...","timestamp":"2025-12-18T16:32:20.755Z"}
+{"level":"info","message":"Stripe data synced","timestamp":"2025-12-18T16:32:20.768Z"}
+{"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T16:32:20.795Z"}
+{"environment":"development","level":"info","message":"LearnSnap server started on port 5000","port":5000,"timestamp":"2025-12-18T16:32:21.533Z"}
+{"level":"info","message":"Initializing Stripe schema...","timestamp":"2025-12-18T16:33:19.751Z"}
+{"level":"info","message":"Stripe schema ready","timestamp":"2025-12-18T16:33:19.805Z"}
+{"level":"info","message":"Setting up managed webhook...","timestamp":"2025-12-18T16:33:19.905Z"}
+{"level":"info","message":"Webhook setup skipped (no URL returned)","timestamp":"2025-12-18T16:33:20.172Z"}
+{"level":"info","message":"Syncing Stripe data...","timestamp":"2025-12-18T16:33:20.172Z"}
+{"level":"info","message":"Stripe data synced","timestamp":"2025-12-18T16:33:20.183Z"}
+{"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T16:33:20.205Z"}
+{"environment":"development","level":"info","message":"LearnSnap server started on port 5000","port":5000,"timestamp":"2025-12-18T16:33:20.793Z"}
+{"level":"info","message":"Initializing Stripe schema...","timestamp":"2025-12-18T16:35:13.496Z"}
+{"level":"info","message":"Stripe schema ready","timestamp":"2025-12-18T16:35:13.567Z"}
+{"level":"info","message":"Setting up managed webhook...","timestamp":"2025-12-18T16:35:13.698Z"}
+{"level":"info","message":"Webhook setup skipped (no URL returned)","timestamp":"2025-12-18T16:35:13.998Z"}
+{"level":"info","message":"Syncing Stripe data...","timestamp":"2025-12-18T16:35:13.998Z"}
+{"level":"info","message":"Stripe data synced","timestamp":"2025-12-18T16:35:14.009Z"}
+{"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T16:35:14.038Z"}
+{"environment":"development","level":"info","message":"LearnSnap server started on port 5000","port":5000,"timestamp":"2025-12-18T16:35:14.650Z"}
+{"level":"info","message":"Initializing Stripe schema...","timestamp":"2025-12-18T16:35:24.904Z"}
+{"level":"info","message":"Stripe schema ready","timestamp":"2025-12-18T16:35:24.979Z"}
+{"level":"info","message":"Setting up managed webhook...","timestamp":"2025-12-18T16:35:25.091Z"}
+{"level":"info","message":"Webhook setup skipped (no URL returned)","timestamp":"2025-12-18T16:35:25.352Z"}
+{"level":"info","message":"Syncing Stripe data...","timestamp":"2025-12-18T16:35:25.352Z"}
+{"level":"info","message":"Stripe data synced","timestamp":"2025-12-18T16:35:25.362Z"}
+{"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T16:35:25.378Z"}
+{"environment":"development","level":"info","message":"LearnSnap server started on port 5000","port":5000,"timestamp":"2025-12-18T16:35:25.963Z"}

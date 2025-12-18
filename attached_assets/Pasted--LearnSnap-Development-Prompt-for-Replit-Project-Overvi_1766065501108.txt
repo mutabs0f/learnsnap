@@ -1,0 +1,937 @@
+# LearnSnap - Development Prompt for Replit
+
+## Project Overview
+Build a B2C SaaS educational app called **LearnSnap** that transforms textbook pages into interactive learning experiences for elementary students (ages 6-12) in Saudi Arabia.
+
+---
+
+## Core Concept
+**Parent Flow:**
+1. Parent photographs 5-15 textbook pages
+2. Uploads to LearnSnap
+3. AI processes and generates interactive content (30-60 seconds)
+4. Child completes 3 learning stages
+5. Parent receives detailed progress report
+
+**Child Flow:**
+1. Learn: Simple explanations with visuals
+2. Practice: 5 questions with instant feedback
+3. Test: 10 questions measuring understanding
+4. Results automatically sent to parent
+
+---
+
+## Tech Stack
+
+### Frontend
+- **Framework:** Next.js 14 (App Router)
+- **Styling:** Tailwind CSS + shadcn/ui
+- **Language:** TypeScript
+- **Icons:** Lucide React
+- **Animations:** Framer Motion
+- **Forms:** React Hook Form + Zod
+
+### Backend
+- **Database:** Supabase (PostgreSQL)
+- **Storage:** Supabase Storage (for uploaded photos)
+- **Auth:** Supabase Auth
+- **Real-time:** Supabase Realtime
+
+### AI Integration
+- **Primary AI:** Gemini Flash (content generation)
+- **Verification AI:** GPT-4o mini (quality check)
+- **Backup AI:** Claude Sonnet (error fixing)
+
+### Deployment
+- **Platform:** Vercel
+- **Environment:** Production-ready
+
+---
+
+## AI Processing Flow
+
+```typescript
+// Simplified 3-AI verification system
+
+async function generateChapter(photos: File[]) {
+  // Step 1: Generate with Gemini Flash (fast & cheap)
+  const geminiContent = await generateWithGemini(photos);
+  
+  // Step 2: Verify with GPT-4o mini
+  const verification = await verifyWithGPT(geminiContent);
+  
+  if (verification.status === "PASS") {
+    return geminiContent; // ✅ Good to go!
+  }
+  
+  // Step 3: Fix with Claude if needed
+  const claudeFixed = await fixWithClaude(geminiContent, verification.issues);
+  
+  // Step 4: Re-verify
+  const recheck = await verifyWithGPT(claudeFixed);
+  
+  if (recheck.status === "PASS") {
+    return claudeFixed;
+  }
+  
+  throw new Error("Content failed verification");
+}
+```
+
+**Cost per chapter:** ~$0.016 average
+- Gemini Flash: $0.005
+- GPT-4o mini: $0.010
+- Claude (5% cases): $0.020
+
+---
+
+## Database Schema
+
+```sql
+-- Users (Parents)
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email TEXT UNIQUE NOT NULL,
+  full_name TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  subscription_tier TEXT DEFAULT 'free', -- free, basic, pro, family
+  subscription_status TEXT DEFAULT 'active',
+  stripe_customer_id TEXT
+);
+
+-- Children
+CREATE TABLE children (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  age INTEGER NOT NULL,
+  avatar_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Chapters
+CREATE TABLE chapters (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  child_id UUID REFERENCES children(id) ON DELETE CASCADE,
+  parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  subject TEXT NOT NULL, -- math, science, arabic, english, etc.
+  grade INTEGER NOT NULL,
+  content JSONB NOT NULL, -- AI-generated content
+  status TEXT DEFAULT 'processing', -- processing, ready, completed
+  created_at TIMESTAMP DEFAULT NOW(),
+  completed_at TIMESTAMP
+);
+
+-- Chapter Results
+CREATE TABLE chapter_results (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  chapter_id UUID REFERENCES chapters(id) ON DELETE CASCADE,
+  child_id UUID REFERENCES children(id) ON DELETE CASCADE,
+  practice_score INTEGER, -- out of 5
+  test_score INTEGER, -- out of 10
+  total_score INTEGER, -- out of 15
+  stars INTEGER, -- 1-5 stars based on percentage
+  time_spent_seconds INTEGER,
+  answers JSONB NOT NULL, -- detailed answers
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Uploaded Photos
+CREATE TABLE chapter_photos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  chapter_id UUID REFERENCES chapters(id) ON DELETE CASCADE,
+  photo_url TEXT NOT NULL,
+  page_number INTEGER NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## Content Structure (JSON Format)
+
+```typescript
+interface ChapterContent {
+  subject: string;          // "math", "science", "arabic", etc.
+  grade: number;            // 1-6
+  topic: string;            // "Addition and Subtraction"
+  
+  explanation: {
+    paragraphs: string[];   // 3-5 simple paragraphs
+  };
+  
+  practice: Question[];     // 5 questions (easy-medium)
+  test: Question[];         // 10 questions (mixed difficulty)
+}
+
+interface Question {
+  question: string;
+  options: string[];        // 4 options: A, B, C, D
+  correct: string;          // "A", "B", "C", or "D"
+  difficulty: "easy" | "medium" | "hard";
+}
+
+// Example
+const exampleContent: ChapterContent = {
+  subject: "math",
+  grade: 2,
+  topic: "الجمع والطرح",
+  explanation: {
+    paragraphs: [
+      "الجمع يعني نضيف أشياء مع بعض. مثلاً، لو عندك تفاحتين وجبت 3 تفاحات زيادة، كم صار عندك؟",
+      "نحسبها كذا: 🍎🍎 + 🍎🍎🍎 = 🍎🍎🍎🍎🍎 يعني 5 تفاحات!",
+      "الطرح يعني نشيل أشياء. لو عندك 5 تفاحات وأكلت 2، كم بقى؟ 5 - 2 = 3"
+    ]
+  },
+  practice: [
+    {
+      question: "2 + 3 = ؟",
+      options: ["4", "5", "6", "7"],
+      correct: "B",
+      difficulty: "easy"
+    },
+    // ... 4 more questions
+  ],
+  test: [
+    {
+      question: "15 - 7 = ؟",
+      options: ["6", "7", "8", "9"],
+      correct: "C",
+      difficulty: "medium"
+    },
+    // ... 9 more questions
+  ]
+};
+```
+
+---
+
+## Key Features & Pages
+
+### Parent App
+
+#### 1. Home Page (`/`)
+```typescript
+// Features:
+- List of all children (cards)
+- "Add New Chapter" button (prominent)
+- Recent activity
+- Streak counter
+- Quick stats
+
+// Components needed:
+- ChildCard (shows name, avatar, recent score, streak)
+- AddChapterButton
+- StatsOverview
+```
+
+#### 2. Upload Chapter (`/upload`)
+```typescript
+// Flow:
+1. Select child (dropdown)
+2. Upload photos (drag & drop or camera)
+3. Preview uploaded photos
+4. Submit for processing
+
+// Components needed:
+- ChildSelector
+- PhotoUploader (with preview, delete, reorder)
+- UploadProgress
+- Tips section (lighting, flat page, etc.)
+
+// Validation:
+- Min 1 photo, max 20 photos
+- File types: JPG, PNG, HEIC
+- Max size per photo: 10MB
+```
+
+#### 3. Processing Screen (`/chapter/[id]/processing`)
+```typescript
+// Features:
+- Loading animation
+- Progress messages
+- Estimated time remaining
+- "Did you know?" facts
+
+// Real-time updates via Supabase Realtime
+// Redirect to chapter view when ready
+```
+
+#### 4. Chapter Details (`/chapter/[id]`)
+```typescript
+// Features:
+- Chapter info (subject, topic, grade)
+- Status (ready, in progress, completed)
+- Preview content
+- Share link with child
+- Delete option
+
+// If completed:
+- Show results
+- View detailed report
+```
+
+#### 5. Report Page (`/report/[resultId]`)
+```typescript
+// Features:
+- Overall score (8/15 → 53% → ⭐⭐⭐)
+- Circular progress chart
+- Strengths (✓ items scored 100%)
+- Needs improvement (⚠️ items scored <60%)
+- Bar chart for all questions
+- Detailed wrong answers with correct ones
+- Recommendations
+- Time spent
+- Buttons: "Retry Test", "Next Chapter"
+
+// Components needed:
+- ScoreCard
+- CircularProgress
+- BarChart
+- StrengthsList
+- WeaknessList
+- ErrorDetails
+- Recommendations
+```
+
+---
+
+### Child App
+
+#### 1. Welcome Screen (`/child/welcome`)
+```typescript
+// Features:
+- Greeting with child name
+- Total stars collected
+- Total badges
+- Current streak
+- "Let's Start!" button
+
+// Design:
+- Colorful gradient background
+- Large friendly emojis
+- Big playful buttons
+```
+
+#### 2. Lessons List (`/child/lessons`)
+```typescript
+// Features:
+- List of available chapters (cards)
+- Each card shows:
+  - Subject emoji + name
+  - Topic
+  - Stars earned (⭐⭐⭐☆☆)
+  - Status (new, in progress, completed)
+  - Colorful illustration
+  - "Start Now!" or "Continue" button
+
+// Design:
+- Cards with shadows
+- Bright colors
+- Clear badges for status
+```
+
+#### 3. Learning Stage (`/child/chapter/[id]/learn`)
+```typescript
+// Features:
+- Progress bar (showing current paragraph)
+- Content display (text + emojis/visuals)
+- "Next" button
+- Simple navigation
+
+// Design:
+- Large readable text (28-32px)
+- Light colored background
+- Emojis for visual aid
+- Smooth transitions
+```
+
+#### 4. Practice Stage (`/child/chapter/[id]/practice`)
+```typescript
+// Features:
+- Question counter (2/5)
+- Question display with visuals
+- 4 answer options (large buttons)
+- "Check" button
+- Immediate feedback (correct/wrong)
+- Encouragement messages
+
+// Feedback screens:
+- Correct: "🎉 ممتاز!" + confetti + points
+- Wrong: "💪 حاول مرة ثانية!" + show correct answer
+
+// Design:
+- Clear question box
+- Large tap targets (min 60px height)
+- Visual feedback (colors, animations)
+```
+
+#### 5. Test Stage (`/child/chapter/[id]/test`)
+```typescript
+// Features:
+- Question counter (5/10)
+- Question display
+- 4 answer options
+- "Next" button (no immediate feedback)
+- Progress indicator
+
+// Design:
+- Similar to practice but no immediate feedback
+- Save answers in state
+- Submit all at the end
+```
+
+#### 6. Results Screen (`/child/chapter/[id]/results`)
+```typescript
+// Features:
+- Celebration animation
+- Stars earned (⭐⭐⭐⭐)
+- Total stars collected
+- New badge (if earned)
+- "Your parent will see your results!"
+- "Back to Lessons" button
+
+// Design:
+- Balloons/confetti animation
+- Golden stars
+- Colorful badge display
+- Positive messaging
+```
+
+---
+
+## Design System
+
+### Colors
+```typescript
+// Parent App (Professional)
+const parentColors = {
+  primary: '#2563EB',      // Blue
+  secondary: '#10B981',    // Green
+  warning: '#F59E0B',      // Orange
+  error: '#EF4444',        // Red
+  background: '#FFFFFF',   // White
+  surface: '#F3F4F6',      // Light Gray
+  text: '#111827',         // Black
+};
+
+// Child App (Playful)
+const childColors = {
+  primary: '#FF6B6B',      // Coral Red
+  secondary: '#4ECDC4',    // Turquoise
+  accent1: '#FFD93D',      // Yellow
+  accent2: '#6BCF7F',      // Green
+  accent3: '#4D96FF',      // Blue
+  accent4: '#B388FF',      // Purple
+  background: 'linear-gradient(135deg, #FFE5E5 0%, #E5F3FF 100%)',
+  surface: '#FFFFFF',
+};
+```
+
+### Typography
+```typescript
+// Parent App
+const parentTypography = {
+  fontFamily: 'Cairo, Inter, sans-serif',
+  h1: 'text-2xl font-bold',
+  h2: 'text-xl font-semibold',
+  body: 'text-base font-normal',
+  caption: 'text-sm font-light',
+};
+
+// Child App
+const childTypography = {
+  fontFamily: 'Cairo, Fredoka, sans-serif',
+  h1: 'text-3xl font-bold',
+  h2: 'text-2xl font-semibold',
+  body: 'text-xl font-normal',
+  button: 'text-xl font-bold',
+};
+```
+
+### Components
+```typescript
+// Button sizes
+const buttonSizes = {
+  parent: 'h-10 px-4',      // 40px height
+  child: 'h-16 px-6',       // 64px height (large tap target)
+};
+
+// Animations
+import { motion } from 'framer-motion';
+
+// Confetti for correct answers
+// Bounce for buttons
+// Slide for page transitions
+```
+
+---
+
+## Arabic RTL Support
+
+```typescript
+// next.config.js
+module.exports = {
+  i18n: {
+    locales: ['ar', 'en'],
+    defaultLocale: 'ar',
+  },
+};
+
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      fontFamily: {
+        arabic: ['Cairo', 'sans-serif'],
+      },
+    },
+  },
+  plugins: [
+    require('tailwindcss-rtl'),
+  ],
+};
+
+// Usage in components
+<div dir="rtl" className="text-right">
+  {/* RTL content */}
+</div>
+
+// CSS
+.rtl {
+  direction: rtl;
+  text-align: right;
+}
+
+// Mirror only necessary elements
+// Don't mirror: numbers, logos, play buttons, clocks
+```
+
+---
+
+## Environment Variables Setup
+
+### Step 1: Get Your API Keys
+
+#### Supabase (Database & Storage)
+1. Go to [supabase.com](https://supabase.com)
+2. Create a new project
+3. Go to Settings → API
+4. Copy:
+   - `Project URL` → NEXT_PUBLIC_SUPABASE_URL
+   - `anon/public key` → NEXT_PUBLIC_SUPABASE_ANON_KEY
+   - `service_role key` → SUPABASE_SERVICE_ROLE_KEY (⚠️ Keep secret!)
+
+#### Google AI Studio (Gemini)
+1. Go to [aistudio.google.com](https://aistudio.google.com)
+2. Click "Get API Key"
+3. Create new API key
+4. Copy → GEMINI_API_KEY
+5. **Cost:** Very cheap! ~$0.005 per chapter
+
+#### OpenAI (GPT-4o mini)
+1. Go to [platform.openai.com](https://platform.openai.com)
+2. Create account (credit card required)
+3. Go to API Keys
+4. Create new secret key
+5. Copy → OPENAI_API_KEY
+6. **Cost:** ~$0.010 per verification
+7. Add credits: $10 minimum (good for 1000+ chapters)
+
+#### Anthropic (Claude)
+1. Go to [console.anthropic.com](https://console.anthropic.com)
+2. Create account
+3. Go to API Keys
+4. Create new key
+5. Copy → ANTHROPIC_API_KEY
+6. **Cost:** ~$0.020 per fix (only 5% of chapters need this)
+7. Add credits: $10 minimum
+
+---
+
+### Step 2: Add to Replit
+
+**In Replit:**
+1. Click "Secrets" tab (🔒 icon on left sidebar)
+2. Add each key:
+
+```
+Key: NEXT_PUBLIC_SUPABASE_URL
+Value: https://your-project.supabase.co
+
+Key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+Value: your_anon_key_here
+
+Key: SUPABASE_SERVICE_ROLE_KEY
+Value: your_service_role_key_here
+
+Key: GEMINI_API_KEY
+Value: your_gemini_key_here
+
+Key: OPENAI_API_KEY
+Value: sk-your_openai_key_here
+
+Key: ANTHROPIC_API_KEY
+Value: sk-ant-your_anthropic_key_here
+
+Key: NEXT_PUBLIC_APP_URL
+Value: https://your-repl.replit.app
+```
+
+---
+
+### Step 3: Create .env.local (for local development)
+
+```bash
+# .env.local
+# ⚠️ NEVER commit this file to Git!
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...
+
+# AI APIs
+GEMINI_API_KEY=AIzaSy...
+OPENAI_API_KEY=sk-proj-...
+ANTHROPIC_API_KEY=sk-ant-...
+
+# App
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+---
+
+### Step 4: Access in Code
+
+```typescript
+// lib/config.ts
+export const config = {
+  supabase: {
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  },
+  ai: {
+    geminiKey: process.env.GEMINI_API_KEY!,
+    openaiKey: process.env.OPENAI_API_KEY!,
+    anthropicKey: process.env.ANTHROPIC_API_KEY!,
+  },
+  app: {
+    url: process.env.NEXT_PUBLIC_APP_URL!,
+  },
+};
+
+// Usage in API routes
+import { config } from '@/lib/config';
+
+const gemini = new GoogleGenerativeAI(config.ai.geminiKey);
+```
+
+---
+
+### Cost Estimate (First Month)
+
+**For 100 chapters:**
+- Gemini Flash: 100 × $0.005 = $0.50
+- GPT-4o mini: 100 × $0.010 = $1.00
+- Claude: 5 × $0.020 = $0.10
+- **Total AI cost: ~$1.60** 💰
+
+**Initial investment:**
+- Gemini: Free tier available (good for testing)
+- OpenAI: $10 minimum
+- Anthropic: $10 minimum
+- **Total: $20** (lasts for 1000+ chapters)
+
+---
+
+### Security Notes
+
+⚠️ **NEVER share or commit:**
+- Service role keys
+- API keys
+- Any secrets
+
+✅ **Always use:**
+- Environment variables
+- Replit Secrets
+- .env.local (add to .gitignore)
+
+🔒 **Row Level Security (RLS):**
+- Enable in Supabase
+- Prevents unauthorized access
+- Even if keys leak, data is safe
+
+---
+
+## Implementation Priority
+
+### Phase 1: MVP (Week 1-2)
+```
+✅ Parent authentication (Supabase Auth)
+✅ Add child profile
+✅ Upload photos (Supabase Storage)
+✅ AI processing (Gemini only, no verification yet)
+✅ Display generated content
+✅ Child can answer questions
+✅ Basic results display
+```
+
+### Phase 2: Polish (Week 3-4)
+```
+✅ Add GPT verification
+✅ Add Claude backup
+✅ Improve UI/UX (animations, colors)
+✅ Add gamification (stars, badges, streaks)
+✅ Detailed reports for parents
+✅ RTL support
+```
+
+### Phase 3: Production (Week 5-6)
+```
+✅ Testing with real users
+✅ Bug fixes
+✅ Performance optimization
+✅ SEO optimization
+✅ Deploy to Vercel
+```
+
+---
+
+## Critical Implementation Notes
+
+### 1. AI Content Generation
+```typescript
+// Use proper error handling
+// Retry logic for API failures
+// Cache results to avoid re-generation
+// Store raw AI responses for debugging
+
+// Example:
+try {
+  const content = await generateWithAI(photos);
+  await saveToDatabase(content);
+} catch (error) {
+  console.error('AI generation failed:', error);
+  // Retry or show error to user
+}
+```
+
+### 2. Photo Upload
+```typescript
+// Client-side:
+// - Compress images before upload
+// - Show upload progress
+// - Allow delete/reorder before submit
+
+// Server-side:
+// - Validate file types and sizes
+// - Store in Supabase Storage
+// - Generate unique filenames
+// - Delete after processing (7 days retention)
+```
+
+### 3. Real-time Updates
+```typescript
+// Use Supabase Realtime for processing status
+const subscription = supabase
+  .channel('chapter-updates')
+  .on('postgres_changes', 
+    { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'chapters',
+      filter: `id=eq.${chapterId}`
+    },
+    (payload) => {
+      if (payload.new.status === 'ready') {
+        router.push(`/chapter/${chapterId}`);
+      }
+    }
+  )
+  .subscribe();
+```
+
+### 4. Gamification Logic
+```typescript
+// Calculate stars based on score
+function calculateStars(score: number, total: number): number {
+  const percentage = (score / total) * 100;
+  
+  if (percentage >= 90) return 5;
+  if (percentage >= 80) return 4;
+  if (percentage >= 70) return 3;
+  if (percentage >= 60) return 2;
+  return 1;
+}
+
+// Track streak
+// Award badges for milestones
+// Save points for each correct answer
+```
+
+### 5. Security
+```typescript
+// Row Level Security (RLS) in Supabase
+// Enable RLS on all tables
+
+// Example policy:
+// Users can only see their own children
+CREATE POLICY "Users can view own children"
+ON children FOR SELECT
+USING (auth.uid() = parent_id);
+
+// Users can only see their own chapters
+CREATE POLICY "Users can view own chapters"
+ON chapters FOR SELECT
+USING (auth.uid() = parent_id);
+```
+
+---
+
+## Testing Checklist
+
+### Parent Flow
+- [ ] Can sign up and log in
+- [ ] Can add child profile with avatar
+- [ ] Can upload 1-20 photos
+- [ ] Can see processing status
+- [ ] Can view generated chapter
+- [ ] Can see child's results
+- [ ] Can view detailed report
+
+### Child Flow
+- [ ] Can see welcome screen with stats
+- [ ] Can select a chapter
+- [ ] Can read learning content
+- [ ] Can answer practice questions
+- [ ] Gets immediate feedback (correct/wrong)
+- [ ] Can complete test
+- [ ] Sees celebration screen with stars
+
+### AI Processing
+- [ ] Gemini generates valid JSON
+- [ ] GPT verifies correctly
+- [ ] Claude fixes errors when needed
+- [ ] Content is age-appropriate
+- [ ] Questions have correct answers
+
+### RTL & Arabic
+- [ ] All text is right-aligned
+- [ ] Navigation flows right-to-left
+- [ ] Arabic fonts display correctly
+- [ ] Numbers stay left-to-right
+- [ ] Icons are mirrored appropriately
+
+---
+
+## Success Criteria
+
+### Technical
+- ✅ < 60 seconds chapter generation time
+- ✅ 95%+ AI verification pass rate
+- ✅ < 2% error rate in AI responses
+- ✅ Mobile responsive (works on phones/tablets)
+- ✅ Works in Chrome, Safari, Firefox
+
+### User Experience
+- ✅ Parents can create a chapter in < 3 minutes
+- ✅ Children can complete a chapter in 10-15 minutes
+- ✅ Reports are clear and actionable
+- ✅ UI is intuitive (no tutorial needed)
+
+### Performance
+- ✅ Page load < 2 seconds
+- ✅ AI processing < 60 seconds
+- ✅ Smooth animations (60fps)
+- ✅ Works on 3G networks
+
+---
+
+## Next Steps After MVP
+
+1. **Add subscription/payment** (Stripe)
+2. **Add more languages** (English support)
+3. **Add voice reading** for content
+4. **Add more gamification** (leaderboards, avatars)
+5. **Add parent dashboard** with analytics
+6. **Add teacher mode** for classroom use
+
+---
+
+## Important Reminders
+
+1. **Keep it simple** - Start with core features only
+2. **Test with real photos** - Use actual textbook pages
+3. **Test with real kids** - Get feedback from target age group
+4. **Focus on mobile** - Most users will be on phones
+5. **Arabic first** - Ensure RTL works perfectly
+6. **Monitor AI costs** - Track spending carefully
+7. **Backup everything** - Regular Supabase backups
+
+---
+
+## File Structure
+
+```
+learnsnap/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/
+│   │   └── signup/
+│   ├── (parent)/
+│   │   ├── layout.tsx
+│   │   ├── page.tsx                 # Home
+│   │   ├── upload/
+│   │   ├── chapter/[id]/
+│   │   └── report/[id]/
+│   ├── (child)/
+│   │   ├── layout.tsx
+│   │   ├── welcome/
+│   │   ├── lessons/
+│   │   └── chapter/[id]/
+│   │       ├── learn/
+│   │       ├── practice/
+│   │       ├── test/
+│   │       └── results/
+│   └── api/
+│       ├── ai/
+│       │   ├── generate/
+│       │   ├── verify/
+│       │   └── fix/
+│       └── upload/
+├── components/
+│   ├── parent/
+│   ├── child/
+│   └── ui/
+├── lib/
+│   ├── supabase.ts
+│   ├── ai/
+│   │   ├── gemini.ts
+│   │   ├── openai.ts
+│   │   └── claude.ts
+│   └── utils.ts
+└── public/
+    ├── fonts/
+    └── images/
+```
+
+---
+
+## Ready to Build! 🚀
+
+**Start with:**
+1. Create Next.js project: `npx create-next-app@latest learnsnap`
+2. Install dependencies: Supabase, Tailwind, shadcn/ui, Framer Motion
+3. Set up Supabase project and database
+4. Implement authentication
+5. Build parent upload flow
+6. Implement AI generation
+7. Build child learning flow
+8. Add gamification
+9. Polish UI
+10. Test and deploy!
+
+**Good luck! 🎉**
