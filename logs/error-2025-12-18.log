@@ -9,3 +9,4 @@
 {"error":{"code":"42P01","file":"parse_relation.c","length":115,"line":"1452","name":"error","position":"182","routine":"parserOpenTable","severity":"ERROR"},"level":"error","message":"Failed to seed sample chapters:","timestamp":"2025-12-18T19:42:19.011Z"}
 {"error":{},"level":"error","message":"Failed to initialize Stripe:","timestamp":"2025-12-18T19:46:48.366Z"}
 {"error":{},"level":"error","message":"Failed to initialize Stripe:","timestamp":"2025-12-18T19:58:43.722Z"}
+{"error":{},"level":"error","message":"Failed to initialize Stripe:","timestamp":"2025-12-18T20:03:54.472Z"}

@@ -66,3 +66,8 @@
 {"error":{},"level":"error","message":"Failed to initialize Stripe:","timestamp":"2025-12-18T19:58:43.722Z"}
 {"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T19:58:43.777Z"}
 {"environment":"development","level":"info","message":"LearnSnap server started on port 5000","port":5000,"timestamp":"2025-12-18T19:58:44.989Z"}
+{"level":"info","message":"Initializing Stripe schema...","timestamp":"2025-12-18T20:03:54.237Z"}
+{"level":"info","message":"Stripe schema ready","timestamp":"2025-12-18T20:03:54.290Z"}
+{"error":{},"level":"error","message":"Failed to initialize Stripe:","timestamp":"2025-12-18T20:03:54.472Z"}
+{"level":"info","message":"Badges seeded successfully","timestamp":"2025-12-18T20:03:54.505Z"}
+{"environment":"development","level":"info","message":"LearnSnap server started on port 5000","port":5000,"timestamp":"2025-12-18T20:03:55.127Z"}
