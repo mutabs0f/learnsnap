@@ -23,7 +23,7 @@ if (isServerless) {
   // Use WebSocket driver for local development
   neonConfig.webSocketConstructor = ws;
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  db = drizzleServerless({ client: pool, schema });
+  db = drizzleServerless(pool, { schema });
 }
 
 export { db };
