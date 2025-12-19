@@ -5,7 +5,7 @@ import { storage } from "./storage";
 import { processChapterWithAI, calculateScores } from "./ai-service";
 import { stripeService } from "./stripeService";
 import { getStripePublishableKey } from "./stripeClient";
-import { insertUserSchema, insertChildSchema, insertChapterSchema } from "@shared/schema";
+import { insertUserSchema, insertChildSchema, insertChapterSchema } from "../shared/schema.js";
 import { z } from "zod";
 import { setChildCookie, clearChildCookie, requireChildAuth, requireChildAccess, setParentCookie, clearParentCookie, requireParentSession, verifyParentToken, type AuthRequest, type ChildRequest } from "./auth";
 import { aiLimiter } from "./security";

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
-import type { ChapterContent, Question } from "@shared/schema";
+import type { ChapterContent, Question } from "../shared/schema.js";
 
 let anthropicClient: Anthropic | null = null;
 let openaiClient: OpenAI | null = null;

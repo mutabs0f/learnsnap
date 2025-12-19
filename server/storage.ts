@@ -35,7 +35,7 @@ import {
   type NotificationPreferences,
   type SampleChapter,
   type InsertSampleChapter,
-} from "@shared/schema";
+} from "../shared/schema.js";
 
 export interface IStorage {
   // Health check
