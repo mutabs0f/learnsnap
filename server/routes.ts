@@ -65,27 +65,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Auth routes
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const data = insertUserSchema.parse(req.body);
+      console.log('=== REGISTRATION ATTEMPT ===');
+      console.log('Request body:', JSON.stringify(req.body));
       
+      const data = insertUserSchema.parse(req.body);
+      console.log('Parsed data:', { email: data.email, fullName: data.fullName, passwordLength: data.password?.length });
+      
+      console.log('Checking if user exists...');
       const existing = await storage.getUserByEmail(data.email);
       if (existing) {
+        console.log('User already exists');
         return res.status(400).json({ error: "البريد الإلكتروني مسجل مسبقاً" });
       }
+      console.log('User does not exist, proceeding...');
 
       // Hash the password before storing
+      console.log('Hashing password...');
       const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
+      console.log('Password hashed, length:', hashedPassword.length);
+      
+      console.log('Creating user in database...');
       const user = await storage.createUser({
         ...data,
         password: hashedPassword,
       });
+      console.log('User created successfully:', user.id);
       
       // Set parent session cookie
+      console.log('Setting parent cookie...');
       setParentCookie(res, user.id, user.email);
       
+      console.log('=== REGISTRATION SUCCESS ===');
       res.json({ user: { id: user.id, email: user.email, fullName: user.fullName } });
-    } catch (error) {
-      console.error("Register error:", error);
-      res.status(400).json({ error: "فشل إنشاء الحساب" });
+    } catch (error: any) {
+      console.error("=== REGISTRATION ERROR ===");
+      console.error("Error type:", error?.constructor?.name);
+      console.error("Error message:", error?.message);
+      console.error("Error stack:", error?.stack);
+      console.error("Full error:", error);
+      res.status(500).json({ error: "فشل إنشاء الحساب", details: error?.message });
     }
   });
 
