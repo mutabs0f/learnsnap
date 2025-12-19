@@ -1,0 +1,154 @@
+STILL GETTING 500 ERROR - DATABASE CONNECTION ISSUE
+
+User tried registration again after deployment:
+- Input fields work ✅
+- Data reaches server ✅  
+- Server returns 500 ❌
+
+This means DATABASE connection is failing in production (Vercel).
+
+YOUR TASK: Fix the database connection issue
+
+1. CHECK DATABASE_URL FORMAT:
+
+The DATABASE_URL in Vercel must be EXACTLY like this:
+postgresql://neondb_owner:PASSWORD@HOST/neondb?sslmode=require
+
+Current DATABASE_URL from environment:
+postgresql://neondb_owner:npg_AO0hXpS8Oe81@ep-long-band-a53vd0t6.us-east-2.aws.neon.tech/neondb?sslmode=require
+
+2. TEST DATABASE CONNECTION IN SERVERLESS:
+
+Create api/test-db.ts to test connection:
+```typescript
+import { db } from '../server/db';
+import { users } from '../server/db/schema';
+
+export default async function handler(req: any, res: any) {
+  try {
+    console.log('Testing database connection...');
+    const result = await db.select().from(users).limit(1);
+    res.json({ success: true, message: 'Database connected', count: result.length });
+  } catch (error: any) {
+    console.error('Database connection error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      code: error.code 
+    });
+  }
+}
+```
+
+3. CHECK IF SCHEMA FILES ARE INCLUDED:
+
+Verify vercel.json includes ALL necessary files:
+```json
+"functions": {
+  "api/index.ts": {
+    "memory": 1024,
+    "maxDuration": 60,
+    "includeFiles": "server/**"  // ✅ This should include schema
+  }
+}
+```
+
+4. FIX DRIZZLE CONNECTION FOR SERVERLESS:
+
+Edit server/db.ts to ensure it works in serverless:
+```typescript
+import { drizzle } from 'drizzle-orm/neon-http';
+import { neon } from '@neondatabase/serverless';
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set');
+}
+
+const sql = neon(process.env.DATABASE_URL);
+export const db = drizzle(sql);
+```
+
+Make sure you're using @neondatabase/serverless (not postgres.js)!
+
+5. CHECK PACKAGE.JSON:
+
+Ensure you have the correct Neon driver:
+```bash
+npm install @neondatabase/serverless --save
+```
+
+NOT postgres or pg-pool (those don't work in serverless)!
+
+6. ADD MORE DETAILED LOGGING:
+
+Edit server/routes/auth.ts register endpoint:
+```typescript
+router.post("/register", async (req, res) => {
+  try {
+    console.log('=== REGISTRATION START ===');
+    console.log('DATABASE_URL exists:', !!process.env.DATABASE_URL);
+    console.log('DATABASE_URL starts with:', process.env.DATABASE_URL?.substring(0, 20));
+    
+    const { email, password, fullName } = req.body;
+    console.log('Data received:', { email, fullName });
+    
+    // Test database connection first
+    console.log('Testing database connection...');
+    const testQuery = await db.select().from(users).limit(1);
+    console.log('Database connection successful, existing users:', testQuery.length);
+    
+    // Rest of registration logic...
+    
+  } catch (error: any) {
+    console.error('=== REGISTRATION ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error stack:', error.stack);
+    
+    res.status(500).json({ 
+      message: "Registration failed",
+      error: error.message // Only in development!
+    });
+  }
+});
+```
+
+7. PUSH AND TEST:
+```bash
+git add .
+git commit -m "Fix database connection for Vercel serverless"
+git push origin main
+```
+
+8. CHECK VERCEL LOGS:
+
+After deployment, check the actual error in Vercel:
+- Go to: https://vercel.com/basim-sayer-almutairis-projects/learnsnap
+- Click on latest deployment
+- Click "Functions" tab
+- Click on the failed function
+- Read the actual error message
+
+9. COMMON FIXES:
+
+If error is "relation does not exist":
+```bash
+npm run db:push
+git add .
+git commit -m "Push database schema"
+git push origin main
+```
+
+If error is "connect ECONNREFUSED":
+- DATABASE_URL is wrong or missing in Vercel
+- Check Vercel Environment Variables
+
+If error is "SSL required":
+- Add ?sslmode=require to DATABASE_URL
+
+Git credentials:
+- User: Basim Almutairi
+- Email: basimalmutairi1989@gmail.com
+
+DEBUG AND FIX THIS NOW!
